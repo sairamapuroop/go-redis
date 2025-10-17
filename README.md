@@ -27,7 +27,8 @@ It supports basic Redis commands and works directly with the official `redis-cli
 The server listens on port 6379 by default.
 
 2. Connect using redis-cli.
-   redis-cli
+
+- redis-cli
 
 ---
 
