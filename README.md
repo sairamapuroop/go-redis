@@ -8,7 +8,7 @@ It supports basic Redis commands and works directly with the official `redis-cli
 ## 🚀 Features
 
 - RESP (Redis Serialization Protocol) parsing  
-- Basic commands: `PING`, `SET`, `GET`  
+- Basic commands: `PING`, `SET`, `GET`, `DEL`  
 - Compatible with `redis-cli`  
 - Handles multiple client connections  
 - Synchronous request-response communication  
@@ -26,9 +26,8 @@ It supports basic Redis commands and works directly with the official `redis-cli
 
 The server listens on port 6379 by default.
 
-2. **Connect using redis-cli**
-  ```bash
-  redis-cli
+2. Connect using redis-cli
+   redis-cli
 
 ---
 
@@ -36,12 +35,11 @@ The server listens on port 6379 by default.
 ```bash
 127.0.0.1:6379> PING
 PONG
-127.0.0.1:6379> SET foo bar
+127.0.0.1:6379> SET go redis
 OK
-127.0.0.1:6379> GET foo
-"bar"
+127.0.0.1:6379> GET go
+"redis"
 
----
 
 
 
