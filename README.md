@@ -16,19 +16,21 @@ It supports basic Redis commands and works directly with the official `redis-cli
 
 ---
 
-## ⚙️ Running the Server
+## Installation
 
-1. **Build and run**
-   ```bash
+1. **Clone the Repository**:
+
+   git clone https://github.com/sairamapuroop/go-redis.git
+
+2. **Start the server**:
+
    go run ./cmd/kvd
-
----
 
 The server listens on port 6379 by default.
 
-2. Connect using redis-cli.
+3. **Connect using redis-cli**
 
-- redis-cli
+   redis-cli
 
 ---
 
