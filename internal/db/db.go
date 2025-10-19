@@ -73,6 +73,12 @@ func (d *DB) Delete(key string) bool {
 
 }
 
+func (d *DB) Flush() {
+	d.mu.Lock()
+	d.store = make(map[string]item)
+	d.mu.Unlock()
+}
+
 func (d *DB) StartJanitor(interval time.Duration, stopCh <-chan struct{}) {
     go func() {
         ticker := time.NewTicker(interval)
@@ -91,6 +97,10 @@ func (d *DB) StartJanitor(interval time.Duration, stopCh <-chan struct{}) {
 func (d *DB) cleanup() {
     d.mu.Lock()
     defer d.mu.Unlock()
+
+	if len(d.store) == 0 {
+		return
+	}
 
     now := time.Now()
     for k, itm := range d.store {

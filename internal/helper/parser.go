@@ -58,6 +58,9 @@ func ParseCommand(arr []string) (string, []string, time.Duration, error) {
         
         // Return structured args: [key]
 		return cmd, []string{key}, 0, nil // TTL is irrelevant, so 0
+	
+	case "FLUSHALL":
+		return cmd, args, 0, nil
 
 	default:
 		return "", nil, 0, fmt.Errorf("error: unknown command: %s", cmd)

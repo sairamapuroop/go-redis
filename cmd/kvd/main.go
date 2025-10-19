@@ -16,7 +16,7 @@ func main() {
 	stopCh := make(chan struct{})
 	d.StartJanitor(1*time.Minute, stopCh)
 
-	defer close(stopCh)
+	close(stopCh)
 
 	// create a new commands registry
 	commands := commands.NewRegistry(d)

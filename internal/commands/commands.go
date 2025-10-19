@@ -55,6 +55,11 @@ func NewRegistry(db *db.DB) *Registry {
 		return "-0\r\n"
 	}
 
+	r.cmds["FLUSHALL"] = func(args []string, _ time.Duration) string {
+		r.db.Flush()
+		return "+OK\r\n"
+	}
+
 	return r
 }
 
