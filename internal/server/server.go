@@ -6,8 +6,8 @@ import (
 	"log"
 	"net"
 	"redis-go/internal/commands"
+	"redis-go/internal/helper"
 	"redis-go/internal/protocol"
-	"strings"
 )
 
 type Server struct {
@@ -59,9 +59,14 @@ func (s *Server) handleConnection(conn net.Conn) {
 			continue
 		}
 
-		cmd := strings.ToUpper(arr[0])
-		args := arr[1:]
-		resp := s.Commands.Execute(cmd, args)
+		cmd, args, ttl, err := helper.ParseCommand(arr)
+
+		if err != nil {
+			fmt.Fprintf(conn, "-ERR %v\r\n", err)
+			return
+		}  
+
+		resp := s.Commands.Execute(cmd, args, ttl)
 
 		// --- Ignore redis-cli's startup probe ---
 		if !firstCommandIgnored && cmd == "COMMAND" {
@@ -84,3 +89,6 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 	}
 }
+
+
+

@@ -3,9 +3,10 @@ package commands
 import (
 	"fmt"
 	"redis-go/internal/db"
+	"time"
 )
 
-type CommandFunc func(args []string) string
+type CommandFunc func(args []string, ttl time.Duration) string
 
 type Registry struct {
 	db   *db.DB
@@ -18,20 +19,20 @@ func NewRegistry(db *db.DB) *Registry {
 		cmds: make(map[string]CommandFunc),
 	}
 
-	r.cmds["PING"] = func(args []string) string {
+	r.cmds["PING"] = func(args []string, _ time.Duration) string {
 		return "+PONG\r\n"
 	}
 
-	r.cmds["SET"] = func(args []string) string {
-		if len(args) != 2 {
+	r.cmds["SET"] = func(args []string, ttl time.Duration) string {
+		if len(args) < 2 {
 			return "-ERR wrong number of arguments\r\n"
 		}
 
-		r.db.Set(args[0], args[1])
+		r.db.Set(args[0], args[1], ttl)
 		return "+OK\r\n"
 	}
 
-	r.cmds["GET"] = func(args []string) string {
+	r.cmds["GET"] = func(args []string, _ time.Duration) string {
 		if len(args) != 1 {
 			return "-ERR wrong number of arguments\r\n"
 		}
@@ -42,7 +43,7 @@ func NewRegistry(db *db.DB) *Registry {
 		return "*0\r\n"
 	}
 
-	r.cmds["DEL"] = func(args []string) string {
+	r.cmds["DEL"] = func(args []string, _ time.Duration) string {
 		if len(args) != 1 {
 			return "-ERR wrong number of arguments\r\n"
 		}
@@ -57,9 +58,9 @@ func NewRegistry(db *db.DB) *Registry {
 	return r
 }
 
-func (r *Registry) Execute(cmd string, args []string) string {
+func (r *Registry) Execute(cmd string, args []string, ttl time.Duration) string {
 	if fn, ok := r.cmds[cmd]; ok {
-		return fn(args)
+		return fn(args,ttl)
 	}
 
 	return "-ERR unknown command\r\n"
