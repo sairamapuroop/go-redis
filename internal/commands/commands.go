@@ -65,7 +65,7 @@ func NewRegistry(db *db.DB) *Registry {
 
 func (r *Registry) Execute(cmd string, args []string, ttl time.Duration) string {
 	if fn, ok := r.cmds[cmd]; ok {
-		return fn(args,ttl)
+		return fn(args, ttl)
 	}
 
 	return "-ERR unknown command\r\n"

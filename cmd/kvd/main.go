@@ -2,10 +2,10 @@ package main
 
 import (
 	"log"
-	"time"
 	"redis-go/internal/commands"
 	"redis-go/internal/db"
 	"redis-go/internal/server"
+	"time"
 )
 
 func main() {
@@ -13,10 +13,15 @@ func main() {
 	// create a new in-memory database
 	d := db.New()
 
+	_ = d.Load("store.json")
+
 	stopCh := make(chan struct{})
 	d.StartJanitor(1*time.Minute, stopCh)
+	d.StartPersistence(1*time.Minute, "store.json", stopCh)
 
-	close(stopCh)
+	defer close(stopCh)
+
+	d.Save("store.json")
 
 	// create a new commands registry
 	commands := commands.NewRegistry(d)

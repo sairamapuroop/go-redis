@@ -64,7 +64,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		if err != nil {
 			fmt.Fprintf(conn, "-ERR %v\r\n", err)
 			return
-		}  
+		}
 
 		resp := s.Commands.Execute(cmd, args, ttl)
 
@@ -89,6 +89,3 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 	}
 }
-
-
-

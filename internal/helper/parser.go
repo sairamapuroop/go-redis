@@ -23,10 +23,10 @@ func ParseCommand(arr []string) (string, []string, time.Duration, error) {
 
 	// 3. Command-Specific Parsing using a switch statement
 	switch cmd {
-	case "COMMAND": 
-	    	return cmd, args, 0, nil
+	case "COMMAND":
+		return cmd, args, 0, nil
 	case "PING":
-		    return cmd, args, 0, nil
+		return cmd, args, 0, nil
 	case "SET":
 		// Expected format: SET key value duration (e.g., SET foo bar 10s)
 		if len(args) < 2 {
@@ -44,9 +44,9 @@ func ParseCommand(arr []string) (string, []string, time.Duration, error) {
 		if err != nil {
 			return "", nil, 0, fmt.Errorf("error: invalid duration for SET: %w", err)
 		}
-        
-        // Return structured args: [key, value]
-        return cmd, []string{key, value}, ttl, nil
+
+		// Return structured args: [key, value]
+		return cmd, []string{key, value}, ttl, nil
 
 	case "GET", "DEL":
 		// Expected format: GET key (or DEL key)
@@ -55,10 +55,10 @@ func ParseCommand(arr []string) (string, []string, time.Duration, error) {
 		}
 
 		key = args[0]
-        
-        // Return structured args: [key]
+
+		// Return structured args: [key]
 		return cmd, []string{key}, 0, nil // TTL is irrelevant, so 0
-	
+
 	case "FLUSHALL":
 		return cmd, args, 0, nil
 
