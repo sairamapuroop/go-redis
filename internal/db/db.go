@@ -9,9 +9,22 @@ import (
 	"time"
 )
 
+type ValueType string
+
+const (
+	StringType ValueType = "string"
+	ListType   ValueType = "list"
+	SetType    ValueType = "set"
+	HashType   ValueType = "hash"
+)
+
 type item struct {
-	Value     string    `json:"value"`
-	ExpiresAt time.Time `json:"expires_at"`
+	Type        ValueType           `json:"type"`
+	StringValue string              `json:"string_value,omitempty"`
+	ListValue   []string            `json:"list_value,omitempty"`
+	SetValue    map[string]struct{} `json:"set_value,omitempty"`
+	HashValue   map[string]string   `json:"hash_value,omitempty"`
+	ExpiresAt   time.Time           `json:"expires_at"`
 }
 
 type DB struct {
@@ -31,12 +44,12 @@ func (d *DB) Get(key string) (string, bool) {
 	itm, ok := d.store[key]
 	d.mu.RUnlock()
 
-	if !ok {
+	if !ok || itm.Type != StringType {
 		return "", false
 	}
 
 	if itm.ExpiresAt.IsZero() || itm.ExpiresAt.After(time.Now()) {
-		return itm.Value, true
+		return itm.StringValue, true
 	}
 
 	// expired, remove it
@@ -57,8 +70,9 @@ func (d *DB) Set(key, val string, ttl time.Duration) {
 	}
 
 	d.store[key] = item{
-		Value:     val,
-		ExpiresAt: expiresAt,
+		Type:        StringType,
+		StringValue: val,
+		ExpiresAt:   expiresAt,
 	}
 
 	d.dirty = true
@@ -75,7 +89,6 @@ func (d *DB) Delete(key string) bool {
 		d.dirty = true
 	}
 
-
 	return ok
 
 }
@@ -87,6 +100,171 @@ func (d *DB) Flush() {
 
 	d.dirty = true
 }
+
+// List Datastructure
+func (d *DB) LPush(key string, values ...string) int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	itm, exists := d.store[key]
+
+	if !exists {
+		itm = item{Type: ListType}
+	}
+
+	if itm.Type != ListType {
+		return 0
+	}
+
+	itm.ListValue = append(values, itm.ListValue...)
+
+	d.store[key] = itm
+
+	d.dirty = true
+
+	return len(itm.ListValue)
+
+}
+
+func (d *DB) RPush(key string, values ...string) int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	itm, exists := d.store[key]
+	if !exists {
+		itm = item{Type: ListType}
+	}
+
+	if itm.Type != ListType {
+		return 0
+	}
+
+	itm.ListValue = append(itm.ListValue, values...)
+	d.store[key] = itm
+
+	d.dirty = true
+
+	return len(itm.ListValue)
+
+}
+
+func (d *DB) LRange(key string, start, end int) []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	itm, ok := d.store[key]
+	if !ok || itm.Type != ListType {
+		return nil
+	}
+
+	l := len(itm.ListValue)
+	if start < 0 {
+		start = l + start
+		if start < 0 {
+			start = 0
+		}
+	}
+
+	if end < 0 {
+		end = l + end
+	}
+
+	if end >= l {
+		end = l - 1
+	}
+
+	if start > end {
+		return nil
+	}
+
+	log.Println(start, end+1)
+
+	return itm.ListValue[start : end+1]
+
+}
+
+func (d *DB) SAdd(key string, members ...string) {
+    d.mu.Lock()
+    defer d.mu.Unlock()
+
+    itm, exists := d.store[key]
+    if !exists {
+        itm = item{Type: SetType, SetValue: make(map[string]struct{})}
+    }
+    if itm.Type != SetType {
+        return
+    }
+
+    for _, m := range members {
+        itm.SetValue[m] = struct{}{}
+    }
+
+    d.store[key] = itm
+    d.dirty = true
+}
+
+func (d *DB) SMembers(key string) []string {
+    d.mu.RLock()
+    defer d.mu.RUnlock()
+
+    itm, ok := d.store[key]
+    if !ok || itm.Type != SetType {
+        return nil
+    }
+
+    members := make([]string, 0, len(itm.SetValue))
+    for k := range itm.SetValue {
+        members = append(members, k)
+    }
+    return members
+}
+
+func (d *DB) HSet(key, field, value string) {
+    d.mu.Lock()
+    defer d.mu.Unlock()
+
+    itm, exists := d.store[key]
+    if !exists {
+        itm = item{Type: HashType, HashValue: make(map[string]string)}
+    }
+    if itm.Type != HashType {
+        return
+    }
+
+    itm.HashValue[field] = value
+    d.store[key] = itm
+    d.dirty = true
+}
+
+func (d *DB) HGet(key, field string) (string, bool) {
+    d.mu.RLock()
+    defer d.mu.RUnlock()
+
+    itm, ok := d.store[key]
+    if !ok || itm.Type != HashType {
+        return "", false
+    }
+
+    val, exists := itm.HashValue[field]
+    return val, exists
+}
+
+func (d *DB) HGetAll(key string) map[string]string {
+    d.mu.RLock()
+    defer d.mu.RUnlock()
+
+    itm, ok := d.store[key]
+    if !ok || itm.Type != HashType {
+        return nil
+    }
+
+    result := make(map[string]string, len(itm.HashValue))
+    for k, v := range itm.HashValue {
+        result[k] = v
+    }
+    return result
+}
+
 
 func (d *DB) StartJanitor(interval time.Duration, stopCh <-chan struct{}) {
 	go func() {
@@ -186,7 +364,7 @@ func (d *DB) StartPersistence(interval time.Duration, filename string, stopCh <-
 		for {
 			select {
 			case <-ticker.C:
-				
+
 				d.mu.Lock()
 				if !d.dirty {
 					d.mu.Unlock()

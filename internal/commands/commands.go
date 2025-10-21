@@ -3,6 +3,8 @@ package commands
 import (
 	"fmt"
 	"redis-go/internal/db"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -53,6 +55,53 @@ func NewRegistry(db *db.DB) *Registry {
 		}
 
 		return "-0\r\n"
+	}
+
+	r.cmds["LPUSH"] = func(args []string, _ time.Duration) string {
+		if len(args) < 2 {
+			return "-ERR wrong number of arguments\r\n"
+		}
+
+		val := r.db.LPush(args[0], args[1:]...)
+
+		return fmt.Sprintf("+%d\r\n", val)
+
+	}
+
+	r.cmds["RPUSH"] = func(args []string, _ time.Duration) string {
+		if len(args) < 2 {
+			return "-ERR wrong number of arguments\r\n"
+		}
+
+		r.db.LPush(args[0], args[1:]...)
+
+		return fmt.Sprintf("+%d\r\n", len(args[1])-1)
+
+	}
+
+	r.cmds["LRANGE"] = func(args []string, _ time.Duration) string {
+		if len(args) < 3 {
+			return "-ERR wrong number of arguments\r\n"
+		}
+
+		start, err := strconv.Atoi(args[1])
+		if err != nil {
+			return "-ERR\r\n"
+		}
+
+		end, err := strconv.Atoi(args[2])
+		if err != nil {
+			return "-ERR\r\n"
+		}
+
+		arr := r.db.LRange(args[0], start, end)
+		if arr == nil {
+			return "+0\r\n"
+		}
+
+		joinarr := strings.Join(arr, ",")
+
+		return joinarr
 	}
 
 	r.cmds["FLUSHALL"] = func(args []string, _ time.Duration) string {

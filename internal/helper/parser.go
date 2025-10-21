@@ -2,6 +2,7 @@ package helper
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 )
@@ -47,6 +48,56 @@ func ParseCommand(arr []string) (string, []string, time.Duration, error) {
 
 		// Return structured args: [key, value]
 		return cmd, []string{key, value}, ttl, nil
+
+	case "LPUSH":
+		// Expected format: LPUSH key value (e.g., LPUSH foo bar)
+		if len(args) < 2 {
+			return "", nil, 0, fmt.Errorf("error: LPUSH requires key, value")
+		}
+
+		key = args[0]
+
+		if len(args) == 2 {
+			return cmd, args, 0, nil
+		}
+
+		values := args[1:]
+
+		argvals := append([]string{key}, values...)
+
+		return cmd, argvals, 0, nil
+
+	case "RPUSH":
+		// Expected format: LPUSH key value (e.g., LPUSH foo bar)
+		if len(args) < 2 {
+			return "", nil, 0, fmt.Errorf("error: RPUSH requires key, value")
+		}
+
+		key = args[0]
+
+		if len(args) == 2 {
+			return cmd, args, 0, nil
+		}
+
+		values := args[1:]
+
+		argvals := append([]string{key}, values...)
+
+		return cmd, argvals, 0, nil
+
+	case "LRANGE":
+		// Expected format: LPUSH key value (e.g., LPUSH foo bar)
+		if len(args) < 3 {
+			return "", nil, 0, fmt.Errorf("error: LRANGE requires key, start and end")
+		}
+
+		key = args[0]
+		start := args[1]
+		end := args[2]
+
+		log.Printf("key: %s, start: %s, end: %s", key, start, end)
+
+		return cmd, []string{key, start, end}, 0, nil
 
 	case "GET", "DEL":
 		// Expected format: GET key (or DEL key)

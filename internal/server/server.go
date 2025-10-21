@@ -8,6 +8,7 @@ import (
 	"redis-go/internal/commands"
 	"redis-go/internal/helper"
 	"redis-go/internal/protocol"
+	"strings"
 )
 
 type Server struct {
@@ -61,12 +62,25 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 		cmd, args, ttl, err := helper.ParseCommand(arr)
 
+		log.Println(cmd, args, ttl)
+
 		if err != nil {
-			fmt.Fprintf(conn, "-ERR %v\r\n", err)
-			return
+			fmt.Fprintf(conn, "-ERR%v\r\n", err)
+			w.Flush()
+			continue
 		}
 
 		resp := s.Commands.Execute(cmd, args, ttl)
+
+		if cmd == "LRANGE" {
+			arr := strings.Split(resp, ",")
+			s.handleLRANGE(w, arr)
+			if err := w.Flush(); err != nil {
+				log.Println("flush error:", err)
+				return
+			}
+			continue
+		}
 
 		// --- Ignore redis-cli's startup probe ---
 		if !firstCommandIgnored && cmd == "COMMAND" {
@@ -88,4 +102,16 @@ func (s *Server) handleConnection(conn net.Conn) {
 		}
 
 	}
+
+}
+
+func (s *Server) handleLRANGE(w *bufio.Writer, arr []string) {
+	fmt.Fprintf(w, "*%d\r\n", len(arr)) // send array header
+
+	log.Println(arr)
+
+	for _, val := range arr {
+		fmt.Fprintf(w, "$%d\r\n%s\r\n", len(val), val)
+	}
+
 }
