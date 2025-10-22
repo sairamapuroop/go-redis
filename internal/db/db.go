@@ -28,14 +28,16 @@ type item struct {
 }
 
 type DB struct {
-	mu    sync.RWMutex
-	store map[string]*item
-	dirty bool
+	mu          sync.RWMutex
+	store       map[string]*item
+	subscribers map[string][]chan string // channelName -> list of subscriber channels
+	dirty       bool
 }
 
 func New() *DB {
 	return &DB{
-		store: make(map[string]*item),
+		store:       make(map[string]*item),
+		subscribers: make(map[string][]chan string),
 	}
 }
 
@@ -184,95 +186,140 @@ func (d *DB) LRange(key string, start, end int) []string {
 }
 
 func (d *DB) SAdd(key string, members ...string) {
-    d.mu.Lock()
-    defer d.mu.Unlock()
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-    itm, exists := d.store[key]
-    if !exists {
-        itm = &item{Type: SetType, SetValue: make(map[string]struct{})}
-    }
-    if itm.Type != SetType {
-        return
-    }
+	itm, exists := d.store[key]
+	if !exists {
+		itm = &item{Type: SetType, SetValue: make(map[string]struct{})}
+	}
+	if itm.Type != SetType {
+		return
+	}
 
-    for _, m := range members {
-        itm.SetValue[m] = struct{}{}
-    }
+	for _, m := range members {
+		itm.SetValue[m] = struct{}{}
+	}
 
-    d.store[key] = itm
-    d.dirty = true
+	d.store[key] = itm
+	d.dirty = true
 }
 
 func (d *DB) SMembers(key string) []string {
-    d.mu.RLock()
-    defer d.mu.RUnlock()
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 
-    itm, ok := d.store[key]
-    if !ok || itm.Type != SetType {
-        return nil
-    }
+	itm, ok := d.store[key]
+	if !ok || itm.Type != SetType {
+		return nil
+	}
 
-    members := make([]string, 0, len(itm.SetValue))
-    for k := range itm.SetValue {
-        members = append(members, k)
-    }
-    return members
+	members := make([]string, 0, len(itm.SetValue))
+	for k := range itm.SetValue {
+		members = append(members, k)
+	}
+	return members
 }
 
 func (d *DB) HSet(key, field, value string) {
-    d.mu.Lock()
-    defer d.mu.Unlock()
+	d.mu.Lock()
+	defer d.mu.Unlock()
 
-    itm, exists := d.store[key]
-    if !exists {
-        itm = &item{Type: HashType, HashValue: make(map[string]string)}
-    }
-    if itm.Type != HashType {
-        return
-    }
+	itm, exists := d.store[key]
+	if !exists {
+		itm = &item{Type: HashType, HashValue: make(map[string]string)}
+	}
+	if itm.Type != HashType {
+		return
+	}
 
-    itm.HashValue[field] = value
-    d.store[key] = itm
-    d.dirty = true
+	itm.HashValue[field] = value
+	d.store[key] = itm
+	d.dirty = true
 }
 
 func (d *DB) HGet(key, field string) (string, bool) {
-    d.mu.RLock()
-    defer d.mu.RUnlock()
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 
-    itm, ok := d.store[key]
-    if !ok || itm.Type != HashType {
-        return "", false
-    }
+	itm, ok := d.store[key]
+	if !ok || itm.Type != HashType {
+		return "", false
+	}
 
-    val, exists := itm.HashValue[field]
-    return val, exists
+	val, exists := itm.HashValue[field]
+	return val, exists
 }
 
 func (d *DB) HGetAll(key string) []string {
-    d.mu.RLock()
-    defer d.mu.RUnlock()
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 
-    itm, ok := d.store[key]
-    if !ok || itm.Type != HashType {
-        return nil
-    }
+	itm, ok := d.store[key]
+	if !ok || itm.Type != HashType {
+		return nil
+	}
 
-    result := make(map[string]string, len(itm.HashValue))
-    for k, v := range itm.HashValue {
-        result[k] = v
-    }
+	result := make(map[string]string, len(itm.HashValue))
+	for k, v := range itm.HashValue {
+		result[k] = v
+	}
 
 	resultstring := make([]string, 0, len(result)*2)
 
-	for k,v := range result {
+	for k, v := range result {
 		resultstring = append(resultstring, k)
 		resultstring = append(resultstring, v)
 	}
 
-    return resultstring
+	return resultstring
 }
 
+func (d *DB) Subscribe(channel string) <-chan string {
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	ch := make(chan string, 10) // buffered to avoid blocking publisher
+	d.subscribers[channel] = append(d.subscribers[channel], ch)
+
+	return ch
+}
+
+func (d *DB) Unsubscribe(channel string, ch <-chan string) {
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	subs := d.subscribers[channel]
+	for i, c := range subs {
+		if c == ch {
+			d.subscribers[channel] = append(subs[:i], subs[i+1:]...)
+			close(c)
+			break
+		}
+	}
+
+}
+
+func (d *DB) Publish(channel string, message string) int {
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	subs := d.subscribers[channel]
+	for _, c := range subs {
+		select {
+		case c <- message:
+		default:
+		}
+	}
+
+	return len(subs)
+
+}
+
+// cleaning up expired keys and snapshots persistence logic
 
 func (d *DB) StartJanitor(interval time.Duration, stopCh <-chan struct{}) {
 	go func() {

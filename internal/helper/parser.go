@@ -2,6 +2,7 @@ package helper
 
 import (
 	"fmt"
+
 	"strings"
 	"time"
 )
@@ -95,7 +96,7 @@ func ParseCommand(arr []string) (string, []string, time.Duration, error) {
 		end := args[2]
 
 		return cmd, []string{key, start, end}, 0, nil
-	
+
 	case "SADD":
 
 		if len(args) < 2 {
@@ -170,6 +171,37 @@ func ParseCommand(arr []string) (string, []string, time.Duration, error) {
 
 	case "FLUSHALL":
 		return cmd, args, 0, nil
+
+	case "SUBSCRIBE":
+		// Expected format: SUBSCRIBE channel
+		if len(args) < 1 {
+			return "", nil, 0, fmt.Errorf("error: SUBSCRIBE requires channel")
+		}
+
+		channel := args[0]
+
+		return cmd, []string{channel}, 0, nil
+
+	case "UNSUBSCRIBE":
+		// Expected format: UNSUBSCRIBE channel
+		if len(args) < 1 {
+			return "", nil, 0, fmt.Errorf("error: UNSUBSCRIBE requires channel")
+		}
+
+		channel := args[0]
+
+		return cmd, []string{channel}, 0, nil
+
+	case "PUBLISH":
+		// Expected format: PUBLISH channel message
+		if len(args) < 2 {
+			return "", nil, 0, fmt.Errorf("error: PUBLISH requires channel and message")
+		}
+
+		channel := args[0]
+		message := args[1]
+
+		return cmd, []string{channel, message}, 0, nil
 
 	default:
 		return "", nil, 0, fmt.Errorf("error: unknown command: %s", cmd)

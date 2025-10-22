@@ -15,6 +15,10 @@ type Registry struct {
 	cmds map[string]CommandFunc
 }
 
+func (r *Registry) GetDB() *db.DB {
+	return r.db
+}
+
 func NewRegistry(db *db.DB) *Registry {
 	r := &Registry{
 		db:   db,
@@ -163,7 +167,6 @@ func NewRegistry(db *db.DB) *Registry {
 
 		return joinarr
 	}
-
 
 	r.cmds["FLUSHALL"] = func(args []string, _ time.Duration) string {
 		r.db.Flush()

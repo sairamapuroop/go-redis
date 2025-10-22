@@ -68,25 +68,68 @@ func (s *Server) handleConnection(conn net.Conn) {
 			continue
 		}
 
+		if cmd == "SUBSCRIBE" {
+			if len(args) < 1 {
+				fmt.Fprintf(w, "-ERR wrong number of arguments for 'subscribe' command\r\n")
+				w.Flush()
+				continue
+			}
+
+			channel := args[0]
+			subChan := s.Commands.GetDB().Subscribe(channel)
+
+			// Correct subscribe confirmation
+			fmt.Fprintf(w, "*3\r\n$9\r\nsubscribe\r\n$%d\r\n%s\r\n:1\r\n", len(channel), channel)
+			w.Flush()
+
+			log.Printf("client subscribed to channel %s", channel)
+
+			// Start listening for published messages
+			go func() {
+				for msg := range subChan {
+					fmt.Fprintf(w, "*3\r\n$7\r\nmessage\r\n$%d\r\n%s\r\n$%d\r\n%s\r\n",
+						len(channel), channel, len(msg), msg)
+					if err := w.Flush(); err != nil {
+						log.Println("subscriber flush error:", err)
+						s.Commands.GetDB().Unsubscribe(channel, subChan)
+						return
+					}
+				}
+			}()
+			continue
+		}
+
+		if cmd == "UNSUBSCRIBE" {
+			if len(args) < 1 {
+				fmt.Fprintf(w, "-ERR wrong number of arguments for 'unsubscribe' command\r\n")
+				w.Flush()
+				continue
+			}
+
+			channel := args[0]
+			s.Commands.GetDB().Unsubscribe(channel, nil) // you can manage this properly later
+			fmt.Fprintf(w, "*3\r\n$11\r\nunsubscribe\r\n$%d\r\n%s\r\n:0\r\n", len(channel), channel)
+			w.Flush()
+			continue
+		}
+
+		if cmd == "PUBLISH" {
+			if len(args) < 2 {
+				fmt.Fprintf(w, "-ERR wrong number of arguments for 'publish' command\r\n")
+				w.Flush()
+				continue
+			}
+
+			channel, message := args[0], args[1]
+			count := s.Commands.GetDB().Publish(channel, message)
+			fmt.Fprintf(w, ":%d\r\n", count)
+			w.Flush()
+			continue
+		}
+
 		resp := s.Commands.Execute(cmd, args, ttl)
 
-		if cmd == "LRANGE" {
-			arr := strings.Split(resp, ",")
-			s.handleStringArrays(w, arr)
-			if err := w.Flush(); err != nil {
-				log.Println("flush error:", err)
-				return
-			}
-			continue
-		} else if cmd == "SMEMBERS" {
-			arr := strings.Split(resp, ",")
-			s.handleStringArrays(w, arr)
-			if err := w.Flush(); err != nil {
-				log.Println("flush error:", err)
-				return
-			}
-			continue
-		} else if cmd == "HGETALL" {
+		if cmd == "LRANGE" || cmd == "SMEMBERS" || cmd == "HGETALL" {
 			arr := strings.Split(resp, ",")
 			s.handleStringArrays(w, arr)
 			if err := w.Flush(); err != nil {
