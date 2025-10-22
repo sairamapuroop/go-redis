@@ -104,6 +104,67 @@ func NewRegistry(db *db.DB) *Registry {
 		return joinarr
 	}
 
+	r.cmds["SADD"] = func(args []string, _ time.Duration) string {
+		if len(args) < 2 {
+			return "-ERR wrong number of arguments\r\n"
+		}
+
+		r.db.SAdd(args[0], args[1:]...)
+		return "+OK\r\n"
+	}
+
+	r.cmds["SMEMBERS"] = func(args []string, _ time.Duration) string {
+		if len(args) != 1 {
+			return "-ERR wrong number of arguments\r\n"
+		}
+
+		arr := r.db.SMembers(args[0])
+		if arr == nil {
+			return "+0\r\n"
+		}
+
+		joinarr := strings.Join(arr, ",")
+
+		return joinarr
+
+	}
+
+	r.cmds["HGET"] = func(args []string, _ time.Duration) string {
+		if len(args) != 2 {
+			return "-ERR wrong number of arguments\r\n"
+		}
+
+		if val, ok := r.db.HGet(args[0], args[1]); ok {
+			return fmt.Sprintf("$%d\r\n%s\r\n", len(val), val)
+		}
+		return "*0\r\n"
+	}
+
+	r.cmds["HSET"] = func(args []string, _ time.Duration) string {
+		if len(args) < 3 {
+			return "-ERR wrong number of arguments\r\n"
+		}
+
+		r.db.HSet(args[0], args[1], args[2])
+		return "+OK\r\n"
+	}
+
+	r.cmds["HGETALL"] = func(args []string, _ time.Duration) string {
+		if len(args) != 1 {
+			return "-ERR wrong number of arguments\r\n"
+		}
+
+		arr := r.db.HGetAll(args[0])
+		if arr == nil {
+			return "+0\r\n"
+		}
+
+		joinarr := strings.Join(arr, ",")
+
+		return joinarr
+	}
+
+
 	r.cmds["FLUSHALL"] = func(args []string, _ time.Duration) string {
 		r.db.Flush()
 		return "+OK\r\n"

@@ -2,7 +2,6 @@ package helper
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 )
@@ -95,9 +94,68 @@ func ParseCommand(arr []string) (string, []string, time.Duration, error) {
 		start := args[1]
 		end := args[2]
 
-		log.Printf("key: %s, start: %s, end: %s", key, start, end)
-
 		return cmd, []string{key, start, end}, 0, nil
+	
+	case "SADD":
+
+		if len(args) < 2 {
+			return "", nil, 0, fmt.Errorf("error: SADD requires key, value")
+		}
+
+		key = args[0]
+
+		if len(args) == 2 {
+			return cmd, args, 0, nil
+		}
+
+		values := args[1:]
+
+		argvals := append([]string{key}, values...)
+
+		return cmd, argvals, 0, nil
+
+	case "SMEMBERS":
+		// Expected format: SMEMBERS key
+		if len(args) < 1 {
+			return "", nil, 0, fmt.Errorf("error: SMEMBERS requires key")
+		}
+
+		key = args[0]
+
+		return cmd, []string{key}, 0, nil
+
+	case "HGET":
+		// Expected format: HGET key field
+		if len(args) < 2 {
+			return "", nil, 0, fmt.Errorf("error: HGET requires key and field")
+		}
+
+		key := args[0]
+		field := args[1]
+
+		return cmd, []string{key, field}, 0, nil
+
+	case "HSET":
+		// Expected format: HSET key field value
+		if len(args) < 3 {
+			return "", nil, 0, fmt.Errorf("error: HSET requires key, field, and value")
+		}
+
+		key := args[0]
+		field := args[1]
+		value := args[2]
+
+		return cmd, []string{key, field, value}, 0, nil
+
+	case "HGETALL":
+		// Expected format: HGETALL key
+		if len(args) < 1 {
+			return "", nil, 0, fmt.Errorf("error: HGETALL requires key")
+		}
+
+		key := args[0]
+
+		return cmd, []string{key}, 0, nil
 
 	case "GET", "DEL":
 		// Expected format: GET key (or DEL key)

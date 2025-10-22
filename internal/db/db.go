@@ -29,13 +29,13 @@ type item struct {
 
 type DB struct {
 	mu    sync.RWMutex
-	store map[string]item
+	store map[string]*item
 	dirty bool
 }
 
 func New() *DB {
 	return &DB{
-		store: make(map[string]item),
+		store: make(map[string]*item),
 	}
 }
 
@@ -69,7 +69,7 @@ func (d *DB) Set(key, val string, ttl time.Duration) {
 		expiresAt = time.Now().Add(ttl)
 	}
 
-	d.store[key] = item{
+	d.store[key] = &item{
 		Type:        StringType,
 		StringValue: val,
 		ExpiresAt:   expiresAt,
@@ -95,7 +95,7 @@ func (d *DB) Delete(key string) bool {
 
 func (d *DB) Flush() {
 	d.mu.Lock()
-	d.store = make(map[string]item)
+	d.store = make(map[string]*item)
 	d.mu.Unlock()
 
 	d.dirty = true
@@ -109,7 +109,7 @@ func (d *DB) LPush(key string, values ...string) int {
 	itm, exists := d.store[key]
 
 	if !exists {
-		itm = item{Type: ListType}
+		itm = &item{Type: ListType}
 	}
 
 	if itm.Type != ListType {
@@ -132,7 +132,7 @@ func (d *DB) RPush(key string, values ...string) int {
 
 	itm, exists := d.store[key]
 	if !exists {
-		itm = item{Type: ListType}
+		itm = &item{Type: ListType}
 	}
 
 	if itm.Type != ListType {
@@ -189,7 +189,7 @@ func (d *DB) SAdd(key string, members ...string) {
 
     itm, exists := d.store[key]
     if !exists {
-        itm = item{Type: SetType, SetValue: make(map[string]struct{})}
+        itm = &item{Type: SetType, SetValue: make(map[string]struct{})}
     }
     if itm.Type != SetType {
         return
@@ -225,7 +225,7 @@ func (d *DB) HSet(key, field, value string) {
 
     itm, exists := d.store[key]
     if !exists {
-        itm = item{Type: HashType, HashValue: make(map[string]string)}
+        itm = &item{Type: HashType, HashValue: make(map[string]string)}
     }
     if itm.Type != HashType {
         return
@@ -249,7 +249,7 @@ func (d *DB) HGet(key, field string) (string, bool) {
     return val, exists
 }
 
-func (d *DB) HGetAll(key string) map[string]string {
+func (d *DB) HGetAll(key string) []string {
     d.mu.RLock()
     defer d.mu.RUnlock()
 
@@ -262,7 +262,15 @@ func (d *DB) HGetAll(key string) map[string]string {
     for k, v := range itm.HashValue {
         result[k] = v
     }
-    return result
+
+	resultstring := make([]string, 0, len(result)*2)
+
+	for k,v := range result {
+		resultstring = append(resultstring, k)
+		resultstring = append(resultstring, v)
+	}
+
+    return resultstring
 }
 
 
@@ -337,7 +345,7 @@ func (d *DB) Load(filename string) error {
 
 	defer file.Close()
 
-	data := make(map[string]item)
+	data := make(map[string]*item)
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&data); err != nil {
 		return err

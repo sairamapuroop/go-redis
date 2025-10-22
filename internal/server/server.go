@@ -62,8 +62,6 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 		cmd, args, ttl, err := helper.ParseCommand(arr)
 
-		log.Println(cmd, args, ttl)
-
 		if err != nil {
 			fmt.Fprintf(conn, "-ERR%v\r\n", err)
 			w.Flush()
@@ -74,7 +72,23 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 		if cmd == "LRANGE" {
 			arr := strings.Split(resp, ",")
-			s.handleLRANGE(w, arr)
+			s.handleStringArrays(w, arr)
+			if err := w.Flush(); err != nil {
+				log.Println("flush error:", err)
+				return
+			}
+			continue
+		} else if cmd == "SMEMBERS" {
+			arr := strings.Split(resp, ",")
+			s.handleStringArrays(w, arr)
+			if err := w.Flush(); err != nil {
+				log.Println("flush error:", err)
+				return
+			}
+			continue
+		} else if cmd == "HGETALL" {
+			arr := strings.Split(resp, ",")
+			s.handleStringArrays(w, arr)
 			if err := w.Flush(); err != nil {
 				log.Println("flush error:", err)
 				return
@@ -105,10 +119,14 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 }
 
-func (s *Server) handleLRANGE(w *bufio.Writer, arr []string) {
-	fmt.Fprintf(w, "*%d\r\n", len(arr)) // send array header
+func (s *Server) handleStringArrays(w *bufio.Writer, arr []string) {
 
-	log.Println(arr)
+	if arr[0] == "+0\r\n" {
+		fmt.Fprintf(w, "*0\r\n")
+		return
+	}
+
+	fmt.Fprintf(w, "*%d\r\n", len(arr)) // send array header
 
 	for _, val := range arr {
 		fmt.Fprintf(w, "$%d\r\n%s\r\n", len(val), val)
