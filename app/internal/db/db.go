@@ -179,8 +179,6 @@ func (d *DB) LRange(key string, start, end int) []string {
 		return nil
 	}
 
-	log.Println(start, end+1)
-
 	return itm.ListValue[start : end+1]
 
 }
@@ -372,7 +370,7 @@ func (d *DB) Save(filename string) error {
 
 	defer file.Close()
 
-	fmt.Println("Saving", len(d.store), "items to", filename)
+	fmt.Println("Saving", len(d.store), "items")
 	encoder := json.NewEncoder(file)
 	return encoder.Encode(d.store)
 

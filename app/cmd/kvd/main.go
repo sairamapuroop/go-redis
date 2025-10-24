@@ -13,15 +13,15 @@ func main() {
 	// create a new in-memory database
 	d := db.New()
 
-	_ = d.Load("store.json")
+	_ = d.Load("./data/store.json")
 
 	stopCh := make(chan struct{})
 	d.StartJanitor(1*time.Minute, stopCh)
-	d.StartPersistence(1*time.Minute, "store.json", stopCh)
+	d.StartPersistence(1*time.Minute, "./data/store.json", stopCh)
 
 	defer close(stopCh)
 
-	d.Save("store.json")
+	d.Save("./data/store.json")
 
 	// create a new commands registry
 	commands := commands.NewRegistry(d)
